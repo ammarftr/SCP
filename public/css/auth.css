@@ -1,0 +1,51 @@
+/* Gaya halaman masuk, lupa kata sandi, dan atur ulang kata sandi (dimuat oleh auth/shell) */
+:root{ --scp-primary:#1B4B7A; --scp-primary-dark:#0F3357; --scp-accent:#C9971F; }
+html{font-size:15px;}
+@media (max-width: 575.98px){ html{font-size:14px;} }
+*{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;}
+h1,h2,h3,h4,.font-display{font-family:'Lexend',sans-serif;}
+body{min-height:100vh; background:#F3F5F8;}
+.scp-wrap{min-height:100vh; display:flex;}
+.scp-side{
+    display:none; flex:1; position:relative; color:#fff; padding:2.5rem;
+    flex-direction:column; justify-content:space-between; overflow:hidden;
+}
+.scp-side .bg-photo{
+    position:absolute; inset:0; background-image:url('../images/gedung-sekolah.jpg');
+    background-size:cover; background-position:center;
+}
+.scp-side .bg-overlay{
+    position:absolute; inset:0;
+    background:linear-gradient(160deg, rgba(12,33,56,.92) 0%, rgba(15,51,87,.88) 55%, rgba(27,75,122,.82) 100%);
+}
+.scp-side > *{position:relative; z-index:1;}
+@media (min-width: 992px){ .scp-side{display:flex;} }
+.scp-side .brand-row{display:flex; align-items:center; gap:.85rem;}
+.scp-side .brand-icon{
+    width:48px; height:48px; border-radius:12px; background:#fff; padding:4px;
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.scp-side .brand-icon img{width:100%; height:100%; object-fit:contain;}
+.scp-side h2{font-weight:600; margin-top:1.5rem; line-height:1.3; font-size:1.5rem;}
+.scp-side .feature{display:flex; gap:.7rem; align-items:flex-start; margin-top:1.1rem;}
+.scp-side .feature i{background:rgba(255,255,255,.12); padding:.5rem; border-radius:9px;}
+.scp-form-col{
+    flex:1; display:flex; align-items:center; justify-content:center; padding:2rem 1.25rem;
+}
+.scp-form-card{width:100%; max-width:370px;}
+/* Kolom isian tetap 16px di HP supaya iPhone tidak zoom sendiri */
+@media (max-width: 575.98px){ .scp-form-card .form-control{font-size:16px;} }
+.scp-form-card .form-control{padding:.65rem .9rem; border-radius:9px; border-color:#DDE2E9;}
+.scp-form-card .form-control:focus{border-color:var(--scp-primary); box-shadow:0 0 0 .2rem rgba(27,75,122,.12);}
+.btn-scp-primary{
+    background:var(--scp-primary); color:#fff; border:none; padding:.68rem;
+    border-radius:9px; font-weight:600;
+}
+.btn-scp-primary:hover{color:#fff; background:var(--scp-primary-dark);}
+.mobile-brand{display:flex; align-items:center; gap:.6rem; justify-content:center; margin-bottom:1.5rem;}
+@media (min-width: 992px){ .mobile-brand{display:none;} }
+.mobile-brand .brand-icon{
+    width:42px; height:42px; border-radius:10px; background:#fff; border:1px solid #E5E9EF; padding:4px;
+}
+.mobile-brand .brand-icon img{width:100%; height:100%; object-fit:contain;}
+
