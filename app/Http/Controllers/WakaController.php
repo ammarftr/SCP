@@ -143,26 +143,21 @@ class WakaController extends Controller
             return back();
         }
 
-        // Mengaktifkan blok otomatis mengunci blok itu (jadwalnya sudah berjalan) dan membuka
-        // blok lainnya. Kunci tetap bisa diubah manual lewat tombol kunci (mis. membuka keduanya).
-        if (isset($data['active_cycle'])) {
-            $data['is_locked_blok_1'] = $data['active_cycle'] === 'Blok 1' ? 1 : 0;
-            $data['is_locked_blok_2'] = $data['active_cycle'] === 'Blok 2' ? 1 : 0;
-        }
+        // Ganti blok aktif dan kunci jadwal adalah dua aksi TERPISAH (sesuai soal):
+        // blok aktif hanya mengatur tampilan global, kunci hanya mengatur hak edit guru.
 
         $lock1 = (bool) ($data['is_locked_blok_1'] ?? $config->is_locked_blok_1);
         $lock2 = (bool) ($data['is_locked_blok_2'] ?? $config->is_locked_blok_2);
 
         DB::table('system_configurations')->where('id', $config->id)->update($data + [
-            // kolom lama: dianggap terkunci hanya kalau kedua blok terkunci
-            'is_schedule_locked' => ($lock1 && $lock2) ? 1 : 0,
+            // kolom skema soal: true bila ada blok yang sedang dikunci
+            'is_schedule_locked' => ($lock1 || $lock2) ? 1 : 0,
             'updated_by' => session('id_user'),
             'updated_at' => now(),
         ]);
 
         if (isset($data['active_cycle'])) {
-            $lain = $data['active_cycle'] === 'Blok 1' ? 'Blok 2' : 'Blok 1';
-            $msg = 'Blok aktif sekarang: ' . $data['active_cycle'] . '. Jadwal ' . $data['active_cycle'] . ' dikunci, jadwal ' . $lain . ' dibuka.';
+            $msg = 'Blok aktif sekarang: ' . $data['active_cycle'] . '. Status kunci jadwal tidak berubah.';
         } else {
             $nm  = isset($data['is_locked_blok_1']) ? 'Blok 1' : 'Blok 2';
             $val = $data['is_locked_blok_1'] ?? $data['is_locked_blok_2'];
@@ -181,7 +176,6 @@ class WakaController extends Controller
     private function getUnfilledJournalAlerts(?string $activeCycle)
     {
         $hariIni = $this->hariMap[now()->format('l')] ?? null;
-        $batasWaktu = now()->subMinutes(30)->format('H:i:s');
 
         if (!$hariIni) {
             return collect();
@@ -191,8 +185,10 @@ class WakaController extends Controller
             ->where('hari', $hariIni)
             ->where('cycle_type', $activeCycle ?? 'Blok 1')
             ->whereNotNull('jam_selesai')
-            ->where('jam_selesai', '<=', $batasWaktu)
             ->get()
+            // Terlambat bila jam_selesai + 30 menit sudah lewat dari sekarang (hari ini).
+            // Dibandingkan sebagai waktu penuh, bukan teks jam, supaya aman di sekitar tengah malam.
+            ->filter(fn($jadwal) => \Carbon\Carbon::parse(now()->toDateString() . ' ' . $jadwal->jam_selesai)->addMinutes(30)->lte(now()))
             ->filter(function ($jadwal) {
                 return !DB::table('journals')
                     ->where('schedule_id', $jadwal->id_jadwal)

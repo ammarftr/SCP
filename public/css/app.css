@@ -350,3 +350,50 @@ a:hover{ color:var(--scp-primary-dark); }
 .scp-pagination .page-link:focus { box-shadow: 0 0 0 .2rem rgba(0,0,0,.08); }
 /* Baris di luar halaman aktif (pagination sisi-klien, public/js/paginasi.js) */
 .pg-sembunyi { display: none !important; }
+
+/* ===== Tabel responsif di HP: tiap baris jadi kartu (tanpa geser kanan-kiri) =====
+   Diaktifkan oleh public/js/tabel-responsif.js (kelas .tabel-kartu + data-label tiap sel).
+   Tabel yang ingin tetap berbentuk tabel: tambahkan kelas .tabel-tetap pada <table>. */
+@media (max-width: 767.98px) {
+    .table-responsive:has(> .tabel-kartu){ overflow-x:visible; }
+    .tabel-kartu, .tabel-kartu tbody{ display:block; width:100%; }
+    .tabel-kartu thead{ display:none; }
+    .tabel-kartu tbody > tr{
+        display:block; position:relative;
+        background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+        margin:0 0 .65rem; padding:.2rem .9rem;
+        box-shadow:0 1px 2px rgba(15,23,42,.04);
+    }
+    .tabel-kartu tbody > tr > td{
+        display:block; position:relative; width:auto !important;
+        padding:.5rem 0 .5rem 40%; min-height:2.1rem;
+        border:0; border-bottom:1px dashed #e5e7eb; box-shadow:none; background:transparent;
+        text-align:left !important; overflow-wrap:anywhere;
+    }
+    .tabel-kartu tbody > tr > td[data-label]::before{
+        content:attr(data-label); position:absolute; left:0; top:.55rem; width:36%;
+        font-size:.7rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+        color:var(--scp-muted, #6b7280); line-height:1.35;
+    }
+    .tabel-kartu tbody > tr > td:last-child{ border-bottom:0; }
+    /* Baris kosong ("Belum ada data") */
+    .tabel-kartu tbody > tr > td[colspan]{ padding:1rem 0; text-align:center !important; }
+    /* Sel aksi: tombol sejajar di bawah kartu */
+    .tabel-kartu tbody > tr > td.sel-aksi{
+        padding:.6rem 0 .35rem; display:flex; flex-wrap:wrap; gap:.4rem; justify-content:flex-end; align-items:center;
+        text-align:right !important;
+    }
+    .tabel-kartu tbody > tr > td.sel-aksi form{ display:inline-block; margin:0; }
+    /* Sel centang (aksi massal) */
+    .tabel-kartu tbody > tr > td.sel-cek{ padding-left:0; padding-top:.45rem; padding-bottom:.45rem; }
+    .tabel-kartu tbody > tr > td.sel-cek::before{ position:static; display:inline-block; width:auto; margin-right:.5rem; vertical-align:middle; }
+    .tabel-kartu tbody > tr > td.sel-cek::before{ content:"Pilih"; }
+    /* "Pilih semua": thead disisakan hanya untuk kotak centang */
+    .tabel-kartu.tabel-ada-massal thead{ display:block; }
+    .tabel-kartu.tabel-ada-massal thead tr{ display:block; padding:.15rem .25rem .6rem; }
+    .tabel-kartu.tabel-ada-massal thead th{ display:none; border:0; }
+    .tabel-kartu.tabel-ada-massal thead th.sel-cek{ display:flex; align-items:center; gap:.5rem; width:auto !important; padding:0; background:transparent; }
+    .tabel-kartu.tabel-ada-massal thead th.sel-cek::after{ content:"Pilih semua"; font-size:.82rem; font-weight:600; color:var(--scp-muted, #6b7280); text-transform:none; letter-spacing:0; }
+    /* Tabel yang dibatasi tinggi (master data): beri ruang agar kartu tidak terpotong aneh */
+    .table-responsive:has(> .tabel-kartu)[style*="max-height"]{ max-height:70vh !important; padding-right:2px; }
+}

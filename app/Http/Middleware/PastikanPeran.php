@@ -41,15 +41,28 @@ class PastikanPeran
         // Sesi yang dibuat SEBELUM kata sandi terakhir diganti tidak berlaku lagi
         // (mis. setelah akun yang dibajak mengatur ulang kata sandi lewat Lupa Kata Sandi).
         // Sesi lama tanpa 'login_at' (dibuat sebelum fitur ini) dibiarkan sampai mereka masuk ulang.
-        $masukPada = (int) $sesi->get('login_at', 0);
-        if ($masukPada > 0) {
-            $diubahPada = DB::table('users')->where('id_user', $sesi->get('id_user'))->value('password_changed_at');
-            if ($diubahPada && Carbon::parse($diubahPada)->timestamp > $masukPada) {
-                $sesi->invalidate();
+        $akun = DB::table('users')->where('id_user', $sesi->get('id_user'))
+            ->first(['password_changed_at', 'is_aktif', 'id_role']);
 
-                return redirect()->route('login')
-                    ->withErrors(['error' => 'Kata sandi akun ini baru diubah. Silakan masuk lagi.']);
-            }
+        // Akun yang sudah dihapus / dinonaktifkan Waka tidak boleh lanjut memakai sesi lamanya.
+        if (!$akun || (int) $akun->is_aktif !== 1) {
+            $sesi->invalidate();
+
+            return redirect()->route('login')
+                ->withErrors(['error' => 'Akun tidak ditemukan atau sudah tidak aktif.']);
+        }
+
+        $masukPada = (int) $sesi->get('login_at', 0);
+        if ($masukPada > 0 && $akun->password_changed_at && Carbon::parse($akun->password_changed_at)->timestamp > $masukPada) {
+            $sesi->invalidate();
+
+            return redirect()->route('login')
+                ->withErrors(['error' => 'Kata sandi akun ini baru diubah. Silakan masuk lagi.']);
+        }
+
+        // Peran bisa diubah Waka setelah pengguna masuk: ikuti data terbaru di database.
+        if ((int) $akun->id_role !== (int) $sesi->get('id_role')) {
+            $sesi->put('id_role', (int) $akun->id_role);
         }
 
         $perluPeran = array_map('intval', $peran);

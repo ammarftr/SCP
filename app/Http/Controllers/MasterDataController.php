@@ -38,6 +38,10 @@ class MasterDataController extends Controller
         //  - Guru (2) / Guru BK (7) yang ditetapkan menjadi wali kelas -> tampil juga di tab Wali Kelas
         //  - Wali Kelas (3) yang mengajar mapel (ada jadwal) -> tampil juga di tab Guru
         //  - Guru BK (7) selalu tampil juga di tab Guru (BK dijadwalkan seperti mapel biasa)
+        // Siswa yang sudah lulus (lewat fitur Kenaikan Kelas) dipisah dari tab Siswa.
+        $nisnLulus = DB::table('siswa')->where('status_utama', 'Lulus')->pluck('nisn')->flip();
+        $akunAlumni = $users->filter(fn($u) => (int) $u->id_role === 5 && isset($nisnLulus[$u->username]))->values();
+
         $akunPerTab = [
             4 => $users->where('id_role', 4)->values(),
             2 => $users->filter(fn($u) => (int) $u->id_role === 2
@@ -46,10 +50,10 @@ class MasterDataController extends Controller
             7 => $users->where('id_role', 7)->values(),
             3 => $users->filter(fn($u) => (int) $u->id_role === 3
                     || (in_array((int) $u->id_role, [2, 7], true) && !empty($u->id_kelas_wali)))->values(),
-            5 => $users->where('id_role', 5)->values(),
+            5 => $users->filter(fn($u) => (int) $u->id_role === 5 && !isset($nisnLulus[$u->username]))->values(),
         ];
 
-        return view('waka.master_data', compact('users', 'kelas', 'jurusan', 'mapels', 'ruangans', 'jumlahSiswaPerKelas', 'kelasSiswa', 'waliPerKelas', 'waliIdPerKelas', 'akunPerTab', 'daftarBk', 'namaBk'));
+        return view('waka.master_data', compact('akunAlumni', 'users', 'kelas', 'jurusan', 'mapels', 'ruangans', 'jumlahSiswaPerKelas', 'kelasSiswa', 'waliPerKelas', 'waliIdPerKelas', 'akunPerTab', 'daftarBk', 'namaBk'));
     }
 
     // ==========================================
@@ -124,6 +128,11 @@ class MasterDataController extends Controller
             'password.min' => 'Kata sandi terlalu pendek! Minimal 8 karakter.',
             'id_kelas_wali.unique' => 'Kelas tersebut sudah punya Wali Kelas lain.',
         ]);
+
+        // Akun yang sedang dipakai tidak boleh mengganti perannya sendiri (bisa mengunci diri dari halaman Waka)
+        if ((string) $id === (string) session('id_user') && (int) $request->id_role !== (int) session('id_role')) {
+            return redirect()->route('akun.index')->withErrors(['error' => 'Anda tidak bisa mengubah peran akun yang sedang Anda pakai.']);
+        }
 
         $data = [
             'nama_lengkap' => $request->nama_lengkap,
@@ -422,6 +431,12 @@ class MasterDataController extends Controller
             if (!$users->has($id) || (int) $users[$id]->id_role === 5) {
                 return redirect()->back()->withErrors(['error' => 'Ada akun yang tidak valid (tidak ditemukan atau akun Siswa).']);
             }
+        }
+
+        // Akun yang sedang dipakai tidak boleh mengganti perannya sendiri
+        $idSaya = (string) session('id_user');
+        if (isset($data[$idSaya]) && (int) $data[$idSaya]['id_role'] !== (int) session('id_role')) {
+            return redirect()->back()->withErrors(['error' => 'Anda tidak bisa mengubah peran akun yang sedang Anda pakai.']);
         }
 
         // Kelas perwalian akhir tiap akun (hanya peran 2/3/7 yang boleh punya)

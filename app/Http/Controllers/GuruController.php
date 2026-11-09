@@ -81,7 +81,6 @@ class GuruController extends Controller
     private function getUnfilledJournalAlerts(?string $activeCycle, int $idGuru)
     {
         $hariIni = $this->hariMap[now()->format('l')] ?? null;
-        $batasWaktu = now()->subMinutes(30)->format('H:i:s');
 
         if (!$hariIni) {
             return collect();
@@ -92,8 +91,10 @@ class GuruController extends Controller
             ->where('hari', $hariIni)
             ->where('cycle_type', $activeCycle ?? 'Blok 1')
             ->whereNotNull('jam_selesai')
-            ->where('jam_selesai', '<=', $batasWaktu)
             ->get()
+            // Terlambat bila jam_selesai + 30 menit sudah lewat dari sekarang (hari ini).
+            // Dibandingkan sebagai waktu penuh, bukan teks jam, supaya aman di sekitar tengah malam.
+            ->filter(fn($jadwal) => \Carbon\Carbon::parse(now()->toDateString() . ' ' . $jadwal->jam_selesai)->addMinutes(30)->lte(now()))
             ->filter(function ($jadwal) {
                 return !DB::table('journals')
                     ->where('schedule_id', $jadwal->id_jadwal)

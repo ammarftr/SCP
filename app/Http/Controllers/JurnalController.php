@@ -110,6 +110,14 @@ class JurnalController extends Controller
             return redirect()->back()->withErrors(['error' => 'Jadwal tidak valid atau bukan milik Anda.'])->withInput();
         }
 
+        // Jurnal hanya boleh untuk jadwal HARI INI pada BLOK AKTIF (sama dengan yang ditampilkan di form).
+        // Dicek di server supaya tidak bisa ditembus dengan mengubah schedule_id di request.
+        $blokAktif = DB::table('system_configurations')->value('active_cycle') ?? 'Blok 1';
+        $hariIni = $this->hariMap[now()->format('l')] ?? null;
+        if ($jadwal->hari !== $hariIni || $jadwal->cycle_type !== $blokAktif) {
+            return redirect()->back()->withErrors(['error' => 'Jurnal hanya bisa diisi untuk jadwal hari ini pada ' . $blokAktif . ' (blok aktif).'])->withInput();
+        }
+
         $today = now()->toDateString();
 
         // Cegah jurnal dobel untuk jadwal & tanggal yang sama (1 jam pelajaran = 1 jurnal per hari)
@@ -153,18 +161,42 @@ class JurnalController extends Controller
             $ketInput = $request->input('keterangan', []);   // format: [id_siswa => 'Rapat OSIS'] (hanya dipakai bila tidak hadir)
             $statusValid = ['Hadir', 'Sakit', 'Izin', 'Alfa'];
 
+            // SINKRONISASI IZIN (di sisi server, tidak bergantung pada isi form):
+            // siswa yang punya izin Approved pada tanggal jurnal otomatis berstatus Sakit/Izin.
+            // Guru tetap boleh menimpa lewat form (mis. siswa ternyata masuk kelas).
+            $izinHariIni = LeaveRequest::where('status_approval', 'Approved')
+                ->whereIn('student_id', $siswaKelas->pluck('id_siswa'))
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today)
+                ->orderBy('id')
+                ->get()
+                ->keyBy('student_id');
+
             $attendanceRows = [];
             foreach ($siswaKelas as $siswa) {
-                $status = $statusInput[$siswa->id_siswa] ?? 'Hadir';
-                if (!in_array($status, $statusValid)) {
-                    $status = 'Hadir';
-                }
+                $izin = $izinHariIni[$siswa->id_siswa] ?? null;
+                $dikirim = $statusInput[$siswa->id_siswa] ?? null;
+
+                // Status dari guru dipakai bila valid; bila kosong/tidak valid, ikuti izin (atau Hadir).
+                $status = in_array($dikirim, $statusValid, true) ? $dikirim : ($izin->jenis ?? 'Hadir');
+
                 $ket = $status === 'Hadir' ? '' : trim((string) ($ketInput[$siswa->id_siswa] ?? ''));
+                if ($ket === '' && $izin && $status === $izin->jenis) {
+                    $ket = \Illuminate\Support\Str::limit((string) $izin->reason, 150, '');
+                }
+
+                // Tautkan ke izin hanya bila statusnya memang berasal dari izin itu, supaya
+                // pembatalan izin (Rejected/Pending lagi) bisa mengembalikannya lewat status_asal.
+                $dariIzin = $izin && $status === $izin->jenis;
+
                 $attendanceRows[] = [
                     'journal_id' => $journalId,
                     'student_id' => $siswa->id_siswa,
+                    'date' => $today,
                     'status' => $status,
                     'keterangan' => $ket !== '' ? mb_substr($ket, 0, 255) : null,
+                    'status_asal' => $dariIzin ? 'Alfa' : null,
+                    'leave_request_id' => $dariIzin ? $izin->id : null,
                 ];
             }
             if (count($attendanceRows) > 0) {

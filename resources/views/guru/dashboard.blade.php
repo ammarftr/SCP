@@ -73,7 +73,7 @@
                     @foreach($alerts as $a)
                     <tr>
                         <td>{{ $a->kelas->id_kelas ?? $a->id_kelas }} &mdash; {{ $a->mataPelajaran->nama_mapel ?? $a->id_mapel }}</td>
-                        <td><span class="badge bg-danger">Selesai {{ $a->jam_selesai }}</span></td>
+                        <td><span class="badge bg-danger">Selesai {{ substr($a->jam_selesai, 0, 5) }}</span></td>
                         <td class="text-end">
                             <a href="{{ route('jurnal.index', ['schedule_id' => $a->id_jadwal]) }}" class="btn btn-sm btn-danger">Isi Jurnal</a>
                         </td>
@@ -97,7 +97,7 @@
                         @forelse($jadwalHariIni as $j)
                             <tr>
                                 <td>
-                                    <span class="badge bg-secondary mb-1">{{ $j->jam_mulai }} - {{ $j->jam_selesai }}</span><br>
+                                    <span class="badge bg-secondary mb-1">{{ substr($j->jam_mulai, 0, 5) }} - {{ substr($j->jam_selesai, 0, 5) }}</span><br>
                                     <strong>{{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }}</strong><br>
                                     <small class="text-muted">Kelas {{ $j->kelas->id_kelas ?? $j->id_kelas }} &middot; Ruang {{ $j->ruangan->nama_ruangan ?? $j->id_ruangan_default }}</small>
                                 </td>
@@ -122,7 +122,7 @@
                         @forelse($jadwalBesok as $j)
                             <tr>
                                 <td>
-                                    <span class="badge bg-secondary mb-1">{{ $j->jam_mulai }} - {{ $j->jam_selesai }}</span><br>
+                                    <span class="badge bg-secondary mb-1">{{ substr($j->jam_mulai, 0, 5) }} - {{ substr($j->jam_selesai, 0, 5) }}</span><br>
                                     <strong>{{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }}</strong><br>
                                     <small class="text-muted">Kelas {{ $j->kelas->id_kelas ?? $j->id_kelas }} &middot; Ruang {{ $j->ruangan->nama_ruangan ?? $j->id_ruangan_default }}</small>
                                 </td>

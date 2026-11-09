@@ -30,28 +30,19 @@ class JadwalPelajaranController extends Controller
         $ruangans = DB::table('ruangan')->get();
         $config = SystemConfiguration::first();
 
-        // Cek Ketersediaan Jadwal: sengaja menampilkan jadwal SEMUA guru (bukan cuma
-        // milik sendiri), biar guru bisa cek "jam segini ruang ini dipakai siapa/enggak"
-        // sebelum input jadwal baru sendiri — mendukung fitur anti-tabrakan secara visual.
-        // Bisa difilter per Hari, Kelas, dan Ruangan. Blok ditampilkan satu per satu di tampilan.
-        $cekQuery = JadwalPelajaran::with(['kelas', 'mataPelajaran', 'guru', 'ruangan']);
-
-        if ($request->filled('cek_hari')) {
-            $cekQuery->where('hari', $request->cek_hari);
-        }
-        if ($request->filled('cek_kelas')) {
-            $cekQuery->where('id_kelas', $request->cek_kelas);
-        }
-        if ($request->filled('cek_ruangan')) {
-            $cekQuery->where('id_ruangan_default', $request->cek_ruangan);
-        }
-
+        // Daftar di halaman ini HANYA jadwal milik guru yang login (semua blok; tab Blok memilih
+        // blok yang tampil). Ketersediaan ruangan/kelas milik guru lain dicek lewat panel
+        // "Ketersediaan Ruangan" (ketersediaan()) dan ditolak server saat simpan bila bentrok.
         $urutanHari = ['Senin' => 1, 'Selasa' => 2, 'Rabu' => 3, 'Kamis' => 4, 'Jumat' => 5];
-        $jadwals = $cekQuery->get()->sortBy(fn($j) => ($urutanHari[$j->hari] ?? 9) . '_' . $j->jam_mulai)->values();
+        $jadwals = $guruLogin
+            ? JadwalPelajaran::with(['kelas', 'mataPelajaran', 'ruangan'])
+                ->where('id_guru', $guruLogin->id_guru)
+                ->get()
+                ->sortBy(fn($j) => ($urutanHari[$j->hari] ?? 9) . '_' . $j->jam_mulai)
+                ->values()
+            : collect();
 
-        $filterAktif = $request->only(['cek_hari', 'cek_kelas', 'cek_ruangan']);
-
-        // Hasil hanya menampilkan satu blok, mengikuti Blok pada form input:
+        // Hanya satu blok yang tampil, mengikuti Blok pada form input:
         // gagal simpan -> blok yang tadi dipilih; berhasil simpan -> blok yang baru diinput
         // (lewat cek_cycle); selain itu blok aktif (atau blok pertama yang belum terkunci).
         $kunci = [
@@ -63,28 +54,119 @@ class JadwalPelajaranController extends Controller
         $blokDipilih = session()->getOldInput('cycle_type') ?: $request->query('cek_cycle');
         $blokTampil = (is_string($blokDipilih) && isset($kunci[$blokDipilih])) ? $blokDipilih : $blokBawaan;
 
-        if ($guruLogin) {
-            $jadwalMilikSendiri = JadwalPelajaran::where('id_guru', $guruLogin->id_guru)->pluck('id_jadwal');
-            $jurnalList = Journal::with(['jadwal.kelas', 'jadwal.mataPelajaran'])
-                ->whereIn('schedule_id', $jadwalMilikSendiri)
-                ->get(); 
-        } else {
-            $jurnalList = Journal::with(['jadwal.kelas', 'jadwal.mataPelajaran'])->get(); 
-        }
-        
-        return view('jadwal.index', compact('jadwals', 'jurnalList', 'config', 'kelas', 'mapels', 'ruangans', 'guruLogin', 'filterAktif', 'blokTampil'));
+        return view('jadwal.index', compact('jadwals', 'config', 'kelas', 'mapels', 'ruangans', 'guruLogin', 'blokTampil'));
     }
 
     /**
-     * Kembali ke halaman jadwal dengan Hasil langsung menampilkan blok yang baru diinput/diubah.
-     * Filter Hari, Kelas, dan Ruangan yang sedang dipakai tetap dipertahankan.
+     * Ketersediaan ruangan + cek bentrok langsung (JSON) untuk panel di halaman Jadwal.
+     * Hanya MEMBACA data. Aturan anti-tabrakan yang mengikat tetap di store() dan update().
+     *
+     * Parameter: blok, hari, ruangan, kelas, sesi_mulai, sesi_selesai (semuanya boleh kosong).
+     *  - slots  : status tiap jam ke- untuk ruangan & hari terpilih (null bila belum dipilih)
+     *  - bentrok: jadwal yang beririsan dengan pilihan guru (ruangan / kelas / guru yang sama)
      */
+    public function ketersediaan(Request $request)
+    {
+        $guru = $this->currentGuru();
+        $guruId = $guru->id_guru ?? null;
+
+        $blok = in_array($request->query('blok'), ['Blok 1', 'Blok 2'], true)
+            ? $request->query('blok')
+            : (optional(SystemConfiguration::first())->active_cycle ?? 'Blok 1');
+        $hari = in_array($request->query('hari'), ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'], true)
+            ? $request->query('hari') : null;
+        $ruangan = $request->query('ruangan') ?: null;
+        $kelas = $request->query('kelas') ?: null;
+
+        $ringkas = function ($j) use ($guruId) {
+            $label = SesiPelajaran::label($j->hari, $j->jam_mulai, $j->jam_selesai);
+
+            return [
+                'kelas' => (string) $j->id_kelas,
+                'mapel' => $j->mataPelajaran->nama_mapel ?? (string) $j->id_mapel,
+                'guru' => $j->guru->nama_guru ?? (string) $j->id_guru,
+                'ruangan' => $j->ruangan->nama_ruangan ?? (string) $j->id_ruangan_default,
+                'hari' => $j->hari,
+                'jam' => ($label ? $label . ' · ' : '') . substr($j->jam_mulai, 0, 5) . '–' . substr($j->jam_selesai, 0, 5),
+                'milik_saya' => $guruId !== null && $j->id_guru == $guruId,
+            ];
+        };
+
+        // 1) Status tiap jam ke- untuk ruangan & hari terpilih (irisan waktu, sama seperti aturan bentrok)
+        $slots = null;
+        if ($hari && $ruangan) {
+            $jadwalRuang = JadwalPelajaran::with(['kelas', 'mataPelajaran', 'guru', 'ruangan'])
+                ->where('cycle_type', $blok)
+                ->where('hari', $hari)
+                ->where('id_ruangan_default', $ruangan)
+                ->get();
+
+            $slots = [];
+            foreach (SesiPelajaran::untukHari($hari) as $s) {
+                $pakai = $jadwalRuang->filter(fn ($j) => substr($j->jam_mulai, 0, 5) < $s['selesai']
+                    && substr($j->jam_selesai, 0, 5) > $s['mulai']);
+
+                $slots[] = [
+                    'no' => $s['no'],
+                    'mulai' => $s['mulai'],
+                    'selesai' => $s['selesai'],
+                    'terpakai' => $pakai->isNotEmpty(),
+                    'oleh' => $pakai->map($ringkas)->values(),
+                ];
+            }
+        }
+
+        // 2) Bentrok untuk pilihan yang sedang diisi di formulir
+        $bentrok = [];
+        $bentrokDicek = false;
+        $pesanJam = null;
+        $sesiMulai = (int) $request->query('sesi_mulai');
+        $sesiSelesai = (int) $request->query('sesi_selesai');
+
+        if ($hari && $sesiMulai > 0 && $sesiSelesai > 0 && ($ruangan || $kelas || $guruId)) {
+            $jam = SesiPelajaran::hitung($hari, $sesiMulai, $sesiSelesai);
+
+            if (is_string($jam)) {
+                $pesanJam = $jam;
+            } else {
+                $bentrokDicek = true;
+                $hasil = JadwalPelajaran::with(['kelas', 'mataPelajaran', 'guru', 'ruangan'])
+                    ->where('hari', $hari)
+                    ->where('cycle_type', $blok)
+                    ->where('jam_mulai', '<', $jam['selesai'])
+                    ->where('jam_selesai', '>', $jam['mulai'])
+                    ->where(function ($q) use ($ruangan, $kelas, $guruId) {
+                        if ($ruangan) { $q->orWhere('id_ruangan_default', $ruangan); }
+                        if ($kelas) { $q->orWhere('id_kelas', $kelas); }
+                        if ($guruId) { $q->orWhere('id_guru', $guruId); }
+                    })
+                    ->get();
+
+                foreach ($hasil as $j) {
+                    $alasan = [];
+                    if ($ruangan && (string) $j->id_ruangan_default === (string) $ruangan) { $alasan[] = 'Ruangan sama'; }
+                    if ($kelas && (string) $j->id_kelas === (string) $kelas) { $alasan[] = 'Kelas sama'; }
+                    if ($guruId && $j->id_guru == $guruId) { $alasan[] = 'Guru sama (Anda)'; }
+
+                    $bentrok[] = $ringkas($j) + ['alasan' => $alasan];
+                }
+            }
+        }
+
+        return response()->json([
+            'blok' => $blok,
+            'hari' => $hari,
+            'slots' => $slots,
+            'bentrok' => $bentrok,
+            'bentrok_dicek' => $bentrokDicek,
+            'pesan_jam' => $pesanJam,
+        ]);
+    }
+
+    /** Kembali ke halaman jadwal dengan daftar langsung menampilkan blok yang baru diinput/diubah. */
     private function kembaliKeJadwal(string $blok)
     {
-        parse_str((string) parse_url(url()->previous(), PHP_URL_QUERY), $query);
-        $query = array_intersect_key($query, array_flip(['cek_hari', 'cek_kelas', 'cek_ruangan']));
-
-        return redirect()->route('jadwal.index', $query + ['cek_cycle' => $blok]);
+        return redirect()->route('jadwal.index', ['cek_cycle' => $blok]);
     }
 
     /** Aturan validasi input jadwal (dipakai tambah & ubah). */

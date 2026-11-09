@@ -41,7 +41,7 @@ class AuthController extends Controller
 
         $user = DB::table('users')->where('username', $request->username)->first();
 
-        if ($user && Hash::check($request->password, $user->password_hash)) {
+        if ($user && (int) $user->is_aktif === 1 && Hash::check($request->password, $user->password_hash)) {
             RateLimiter::clear($kunci);
             $request->session()->regenerate();
             session([

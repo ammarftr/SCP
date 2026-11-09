@@ -13,7 +13,7 @@
             <div class="col-md-8 text-center">
                 <div class="card shadow-sm p-5">
                     <h1 class="mb-3">Aplikasi UKK SCP</h1>
-                    <p class="text-muted mb-4">Kemajuan Kelas Sekolah</p>
+                    <p class="text-muted mb-4">SCP - Presensi &amp; Jurnal Sekolah</p>
                     
                     <div class="d-grid gap-3 col-6 mx-auto">
                         <a href="{{ route('jadwal.index') }}" class="btn btn-primary btn-lg">Kelola Jadwal Pelajaran</a>

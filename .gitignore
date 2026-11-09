@@ -26,9 +26,11 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-/public/home/
-/public/uploads/izin/*
-/public/uploads/jurnal/*
-!/public/uploads/izin/.gitkeep
-!/public/uploads/jurnal/.gitkeep
-/storage/framework/views/*.php
+# Berkas unggahan & hasil kompilasi (jangan di-commit)
+/public/uploads/*
+!/public/uploads/*/
+/public/uploads/*/*
+!/public/uploads/*/.gitkeep
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/public/home

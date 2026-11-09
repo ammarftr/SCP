@@ -11,6 +11,8 @@ use App\Http\Controllers\JurnalController;
 use App\Http\Controllers\SiswaIzinController;
 use App\Http\Controllers\KesiswaanController;
 use App\Http\Controllers\MasterDataController;
+use App\Http\Controllers\KenaikanKelasController;
+use App\Http\Controllers\ImporSiswaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -93,23 +95,36 @@ Route::middleware('peran:4')->group(function () {
     Route::post('/master/ruangan/massal-ubah', [MasterDataController::class, 'ubahMassalRuangan'])->name('master.ruangan.massal-ubah');
     Route::post('/master/jadwal/massal-hapus', [MasterDataController::class, 'hapusMassalJadwal'])->name('master.jadwal.massal-hapus');
 
+    // Kenaikan kelas (pratinjau, proses, batalkan proses terakhir)
+    Route::get('/waka/kenaikan-kelas', [KenaikanKelasController::class, 'index'])->name('waka.kenaikan.index');
+    Route::post('/waka/kenaikan-kelas/proses', [KenaikanKelasController::class, 'proses'])->name('waka.kenaikan.proses');
+    Route::post('/waka/kenaikan-kelas/{id}/batalkan', [KenaikanKelasController::class, 'batalkan'])->name('waka.kenaikan.batalkan');
+
+    // Impor siswa massal (tempel dari Excel)
+    Route::get('/waka/impor-siswa', [ImporSiswaController::class, 'index'])->name('waka.impor.index');
+    Route::post('/waka/impor-siswa/pratinjau', [ImporSiswaController::class, 'pratinjau'])->name('waka.impor.pratinjau');
+    Route::post('/waka/impor-siswa/simpan', [ImporSiswaController::class, 'simpan'])->name('waka.impor.simpan');
+
 });
 
 
 // ==========================================
-// ROUTE GURU (peran 2) + GURU BK (peran 7)
-// BK dijadwalkan seperti mapel biasa, jadi memakai beranda, jadwal, dan jurnal yang sama.
+// ROUTE GURU (peran 2) + WAKA YANG MENGAJAR (peran 4) + GURU BK (peran 7)
+// BK dan Waka yang juga guru mapel dijadwalkan seperti guru biasa, jadi memakai
+// beranda, jadwal, dan jurnal yang sama (data tetap dibatasi ke jadwal miliknya).
 // ==========================================
-Route::middleware('peran:2,7')->group(function () {
+Route::middleware('peran:2,4,7')->group(function () {
     Route::get('/guru/dashboard', [GuruController::class, 'dashboard'])->name('guru.dashboard');
 });
 
 
 // ==========================================
-// ROUTE JADWAL & JURNAL (wajib masuk; pembatasan lanjutan ada di controller)
+// ROUTE JADWAL & JURNAL (khusus staf: Guru, Wali Kelas, Waka, Guru BK; siswa tidak punya akses)
+// Pembatasan lanjutan (hanya jadwal milik sendiri, status kunci) ada di controller.
 // ==========================================
-Route::middleware('peran')->group(function () {
+Route::middleware('peran:2,3,4,7')->group(function () {
     Route::get('/jadwal', [JadwalPelajaranController::class, 'index'])->name('jadwal.index');
+    Route::get('/jadwal/ketersediaan', [JadwalPelajaranController::class, 'ketersediaan'])->name('jadwal.ketersediaan');
     Route::post('/jadwal/store', [JadwalPelajaranController::class, 'store'])->name('jadwal.store');
     Route::post('/jadwal/{id}/update', [JadwalPelajaranController::class, 'update'])->name('jadwal.update');
     Route::post('/jadwal/{id}/delete', [JadwalPelajaranController::class, 'destroy'])->name('jadwal.destroy');

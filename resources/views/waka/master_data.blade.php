@@ -74,7 +74,7 @@
 
             <div class="col-lg-8">
                 <div class="scp-card">
-                    <div class="scp-card-header">Daftar Akun ({{ $users->count() }})</div>
+                    <div class="scp-card-header">Daftar Akun ({{ $users->count() - $akunAlumni->count() }})</div>
                     <div class="scp-card-body">
                         <input type="text" class="form-control mb-3 akun-search" placeholder="Cari nama atau nama pengguna...">
 
@@ -132,6 +132,39 @@
                             </div>
                         @endforeach
                         </div>
+
+                        @if($akunAlumni->count())
+                        <details class="mt-3 border rounded-3 px-3 py-2">
+                            <summary class="fw-semibold" style="cursor:pointer;">Akun Alumni <span class="small text-muted fw-normal ms-1">{{ $akunAlumni->count() }}</span></summary>
+                            <div class="mb-2"></div>
+                            <div class="massal" data-form-hapus="#formHapusAkun" data-nama="akun alumni" data-peringatan="Data siswa dan riwayat presensinya ikut terhapus dan tidak bisa dikembalikan.">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <span class="massal-jumlah small text-muted ms-auto"></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger massal-tombol" data-aksi="hapus" disabled>Hapus yang dipilih</button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" data-paginasi="20">
+                                    <thead class="table-light"><tr><th style="width:36px"><input type="checkbox" class="form-check-input massal-semua" aria-label="Pilih semua alumni"></th><th>NIS / NIP</th><th>Nama</th><th class="text-center">Aksi</th></tr></thead>
+                                    <tbody>
+                                    @foreach($akunAlumni as $u)
+                                        <tr class="massal-baris">
+                                            <td style="width:36px"><input type="checkbox" class="form-check-input massal-cek" value="{{ $u->id_user }}"></td>
+                                            <td>{{ $u->username }}</td>
+                                            <td>{{ $u->nama_lengkap }}</td>
+                                            <td class="text-center">
+                                                <form action="{{ route('akun.destroy', $u->id_user) }}" method="POST" class="d-inline" data-confirm="Hapus akun alumni {{ $u->username }}? Data siswa dan riwayat presensinya ikut terhapus.">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                        </details>
+                        @endif
 
                         {{-- Satu modal ubah akun dipakai bersama (diisi lewat JS dari data-* tombol). Sebelumnya satu modal + 2 dropdown
                              Tom Select dibuat untuk SETIAP akun sehingga halaman ini sangat berat saat akun ratusan. --}}
@@ -336,11 +369,11 @@
                             @csrf
                             <div class="mb-3">
                                 <label class="form-label small fw-semibold">Kode Mapel</label>
-                                <input type="text" name="id_mapel" class="form-control" required placeholder="Contoh: KIMIA">
+                                <input type="text" name="id_mapel" class="form-control" required placeholder="Contoh: BING">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label small fw-semibold">Nama Mapel</label>
-                                <input type="text" name="nama_mapel" class="form-control" required>
+                                <input type="text" name="nama_mapel" class="form-control" required placeholder="Contoh: Bahasa Inggris">
                             </div>
                             <button type="submit" class="btn btn-scp-accent w-100">Simpan Mapel</button>
                         </form>

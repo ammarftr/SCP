@@ -102,6 +102,8 @@
 
                     @include('partials.input-jam', ['sesiMulai' => old('sesi_mulai'), 'sesiSelesai' => old('sesi_selesai')])
 
+                    <div id="peringatanForm" class="mb-3" aria-live="polite"></div>
+
                     <button type="submit" class="btn btn-scp-accent w-100" {{ ($lockMap['Blok 1'] && $lockMap['Blok 2']) ? 'disabled' : '' }}>
                         Simpan &amp; Uji Jadwal
                     </button>
@@ -110,57 +112,19 @@
         </div>
     </div>
 
-    <!-- Kolom Kanan: Cek Ketersediaan Jadwal (semua guru, bisa difilter) -->
+    <!-- Kolom Kanan: Ketersediaan ruangan (langsung) + daftar jadwal milik sendiri -->
     <div class="col-lg-7">
-        <div class="scp-card mb-3">
-            <div class="scp-card-header accent-primary">
-                Cek Ketersediaan Jadwal
-            </div>
+        {{-- Ketersediaan ruangan: berubah langsung mengikuti Hari + Ruangan (+ Blok) pada formulir input --}}
+        <div class="scp-card mb-3" id="panelKetersediaan">
+            <div class="scp-card-header accent-primary">Ketersediaan Ruangan</div>
             <div class="scp-card-body">
-                <form method="GET" action="{{ route('jadwal.index') }}" class="row g-2" data-auto-filter>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small fw-semibold">Hari</label>
-                        <select name="cek_hari" class="form-select form-select-sm">
-                            <option value="">Semua</option>
-                            @foreach(['Senin','Selasa','Rabu','Kamis','Jumat'] as $h)
-                                <option value="{{ $h }}" {{ ($filterAktif['cek_hari'] ?? '') == $h ? 'selected' : '' }}>{{ $h }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <input type="hidden" name="cek_cycle" id="cekCycle" value="{{ $blokTampil }}">
-                    <div class="col-6 col-md-4">
-                        <label class="form-label small fw-semibold">Kelas</label>
-                        <select name="cek_kelas" class="form-select form-select-sm select-search">
-                            <option value="">Semua</option>
-                            @foreach($kelas as $k)
-                                <option value="{{ $k->id_kelas }}" {{ ($filterAktif['cek_kelas'] ?? '') == $k->id_kelas ? 'selected' : '' }}>{{ $k->id_kelas }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-4">
-                        <label class="form-label small fw-semibold">Ruangan</label>
-                        <select name="cek_ruangan" class="form-select form-select-sm select-search">
-                            <option value="">Semua</option>
-                            @foreach($ruangans as $r)
-                                <option value="{{ $r->id_ruangan }}" {{ ($filterAktif['cek_ruangan'] ?? '') == $r->id_ruangan ? 'selected' : '' }}>{{ $r->nama_ruangan }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    @if(array_filter($filterAktif))
-                        <div class="col-12 d-flex gap-2 mt-2">
-                            <a href="{{ route('jadwal.index') }}" class="btn btn-outline-secondary btn-sm">Atur Ulang</a>
-                        </div>
-                    @endif
-                    <noscript>
-                        <div class="col-12 mt-2"><button type="submit" class="btn btn-scp-primary btn-sm">Terapkan</button></div>
-                    </noscript>
-                </form>
+                <div id="ketersediaanIsi" aria-live="polite"></div>
             </div>
         </div>
 
         <div class="scp-card">
             <div class="scp-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <span><span id="judulBlok">{{ $blokTampil }}</span> &middot; <span id="jumlahHasil">0</span> jadwal</span>
+                <span>Jadwal saya &middot; <span id="judulBlok">{{ $blokTampil }}</span> &middot; <span id="jumlahHasil">0</span> jadwal</span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Pilih blok">
                     @foreach(['Blok 1', 'Blok 2'] as $b)
                         <button type="button" class="btn btn-outline-secondary" data-tab-blok="{{ $b }}">{{ $b }}</button>
@@ -168,30 +132,19 @@
                 </div>
             </div>
             <div class="scp-card-body p-0 p-md-3">
-                @php $bisaMassal = (int) session('id_role') === 4; @endphp
-                @if($bisaMassal)
-                <div class="massal" data-form-hapus="#formHapusJadwal" data-nama="jadwal" data-peringatan="Jadwal yang sudah punya jurnal dilewati.">
-                    <div class="d-flex align-items-center gap-2 mb-2 px-3 px-md-0 pt-2 pt-md-0">
-                        <span class="massal-jumlah small text-muted ms-auto"></span>
-                        <button type="button" class="btn btn-sm btn-outline-danger massal-tombol" data-aksi="hapus" disabled><i class="bi bi-trash me-1"></i>Hapus</button>
-                    </div>
-                @endif
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tabelHasil" data-paginasi="15">
                         <thead class="table-light">
                             <tr>
-                                @if($bisaMassal)<th style="width:36px"><input type="checkbox" class="form-check-input massal-semua" aria-label="Pilih semua"></th>@endif
                                 <th>Hari / Jam</th>
                                 <th>Kelas &amp; Mapel</th>
-                                <th>Guru</th>
                                 <th>Ruangan</th>
-                                @if($guruLogin)<th class="text-center">Aksi</th>@endif
+                                <th class="text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($jadwals as $j)
-                                <tr data-blok="{{ $j->cycle_type }}" class="{{ $bisaMassal ? 'massal-baris ' : '' }}{{ $guruLogin && $j->id_guru == $guruLogin->id_guru ? 'jadwal-saya' : '' }}">
-                                    @if($bisaMassal)<td><input type="checkbox" class="form-check-input massal-cek" value="{{ $j->id_jadwal }}"></td>@endif
+                                <tr data-blok="{{ $j->cycle_type }}">
                                     <td>
                                         <strong>{{ $j->hari }}</strong><br>
                                         <small class="text-muted">
@@ -203,50 +156,37 @@
                                         {{ $j->kelas->id_kelas ?? $j->id_kelas }}<br>
                                         <small class="text-muted">{{ $j->id_mapel }} &mdash; {{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }}</small>
                                     </td>
-                                    <td>
-                                        {{ $j->guru->nama_guru ?? $j->id_guru }}
-                                        @if($guruLogin && $j->id_guru == $guruLogin->id_guru)
-                                            <span class="badge badge-jadwal-saya">Jadwal saya</span>
-                                        @endif
-                                    </td>
                                     <td>{{ $j->ruangan->nama_ruangan ?? $j->id_ruangan_default }}</td>
-                                    @if($guruLogin)
                                     <td class="text-center text-nowrap">
-                                        @if($j->id_guru == $guruLogin->id_guru)
-                                            @if($config && $config->isCycleLocked($j->cycle_type))
-                                                <span class="text-danger small" title="{{ $j->cycle_type }} dikunci oleh Waka"><i class="bi bi-lock-fill"></i> Terkunci</span>
-                                            @else
-                                                <button type="button" class="btn btn-sm btn-outline-primary btn-edit-jadwal" title="Ubah"
-                                                    data-action="{{ route('jadwal.update', $j->id_jadwal) }}"
-                                                    data-kelas="{{ $j->id_kelas }}"
-                                                    data-mapel="{{ $j->id_mapel }}"
-                                                    data-ruangan="{{ $j->id_ruangan_default }}"
-                                                    data-hari="{{ $j->hari }}"
-                                                    data-blok="{{ $j->cycle_type }}"
-                                                    data-mulai="{{ substr($j->jam_mulai, 0, 5) }}"
-                                                    data-selesai="{{ substr($j->jam_selesai, 0, 5) }}">
-                                                    <i class="bi bi-pencil-square"></i>
-                                                </button>
-                                                <form action="{{ route('jadwal.destroy', $j->id_jadwal) }}" method="POST" class="d-inline" data-confirm="Hapus jadwal {{ $j->kelas->id_kelas ?? $j->id_kelas }} &mdash; {{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }} ({{ $j->hari }}, {{ $j->cycle_type }})?">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus"><i class="bi bi-trash"></i></button>
-                                                </form>
-                                            @endif
+                                        {{-- Saat blok dikunci Waka, tombol aksi disembunyikan (endpoint juga dijaga di server) --}}
+                                        @if($config && $config->isCycleLocked($j->cycle_type))
+                                            <span class="text-danger small" title="{{ $j->cycle_type }} dikunci oleh Waka"><i class="bi bi-lock-fill"></i> Terkunci</span>
+                                        @else
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-edit-jadwal" title="Ubah"
+                                                data-action="{{ route('jadwal.update', $j->id_jadwal) }}"
+                                                data-kelas="{{ $j->id_kelas }}"
+                                                data-mapel="{{ $j->id_mapel }}"
+                                                data-ruangan="{{ $j->id_ruangan_default }}"
+                                                data-hari="{{ $j->hari }}"
+                                                data-blok="{{ $j->cycle_type }}"
+                                                data-mulai="{{ substr($j->jam_mulai, 0, 5) }}"
+                                                data-selesai="{{ substr($j->jam_selesai, 0, 5) }}">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <form action="{{ route('jadwal.destroy', $j->id_jadwal) }}" method="POST" class="d-inline" data-confirm="Hapus jadwal {{ $j->kelas->id_kelas ?? $j->id_kelas }} &mdash; {{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }} ({{ $j->hari }}, {{ $j->cycle_type }})?">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus"><i class="bi bi-trash"></i></button>
+                                            </form>
                                         @endif
                                     </td>
-                                    @endif
                                 </tr>
                             @endforeach
                             <tr id="barisKosong" class="d-none">
-                                <td colspan="{{ ($guruLogin ? 5 : 4) + ($bisaMassal ? 1 : 0) }}" class="text-center text-muted py-4">Slot kosong.</td>
+                                <td colspan="4" class="text-center text-muted py-4">Anda belum punya jadwal di blok ini.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                @if($bisaMassal)
-                </div>
-                <form id="formHapusJadwal" method="POST" action="{{ route('master.jadwal.massal-hapus') }}" class="d-none">@csrf<div class="massal-ids"></div></form>
-                @endif
             </div>
         </div>
     </div>
@@ -324,6 +264,13 @@
     .table > tbody > tr.jadwal-saya > td:first-child { box-shadow: inset 4px 0 0 var(--scp-primary); }
     .table-hover > tbody > tr.jadwal-saya:hover > * { background-color: #DCE8F4; }
     .badge-jadwal-saya { background: var(--scp-primary); color: #fff; font-weight: 600; }
+
+    /* Ketersediaan ruangan per jam ke- */
+    .slot-ruang { display: flex; align-items: center; gap: .75rem; padding: .55rem .75rem; border-radius: 10px; border: 1px solid #e5e7eb; }
+    .slot-ruang .slot-no { font-weight: 700; min-width: 5.2rem; line-height: 1.25; }
+    .slot-ruang.kosong { background: #f0faf5; border-color: #cdebdc; }
+    .slot-ruang.pakai { background: #fef2f2; border-color: #fecaca; }
+    .slot-ruang.dipilih { outline: 2px solid var(--scp-primary); outline-offset: 1px; }
 </style>
 @endpush
 
@@ -396,16 +343,16 @@
     document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('.jam-group').forEach(perbarui));
 })();
 
-// Hasil jadwal hanya menampilkan satu blok dan mengikuti Blok pada form input (dua arah).
+// Daftar "Jadwal Saya" hanya menampilkan satu blok dan mengikuti Blok pada form input (dua arah).
 (function () {
     const selBlok = document.getElementById('inputBlok');
-    const hidden = document.getElementById('cekCycle');
     const tombol = document.querySelectorAll('[data-tab-blok]');
     const baris = document.querySelectorAll('#tabelHasil tbody tr[data-blok]');
     const kosong = document.getElementById('barisKosong');
     const jumlah = document.getElementById('jumlahHasil');
     const judul = document.getElementById('judulBlok');
-    if (!hidden || !tombol.length) return;
+    if (!tombol.length) return;
+    let blokSekarang = @json($blokTampil);
 
     function tampil(blok) {
         let n = 0;
@@ -417,15 +364,15 @@
         kosong.classList.toggle('d-none', n > 0);
         jumlah.textContent = n;
         judul.textContent = blok;
-        hidden.value = blok;
-        if (window.massalSegarkan) window.massalSegarkan();
+        blokSekarang = blok;
         tombol.forEach(function (t) { t.classList.toggle('active', t.dataset.tabBlok === blok); });
+        window.dispatchEvent(new CustomEvent('scp-blok-berubah'));
     }
 
-    // Ganti Blok di form input -> Hasil ikut berganti
+    // Ganti Blok di form input -> daftar ikut berganti
     if (selBlok) selBlok.addEventListener('change', function () { tampil(selBlok.value); });
 
-    // Klik tab Blok di Hasil -> form ikut berganti bila blok itu belum dikunci
+    // Klik tab Blok -> form ikut berganti bila blok itu belum dikunci
     tombol.forEach(function (t) {
         t.addEventListener('click', function () {
             const blok = t.dataset.tabBlok;
@@ -437,7 +384,106 @@
         });
     });
 
-    tampil(hidden.value);
+    tampil(blokSekarang);
+})();
+
+// Ketersediaan ruangan & peringatan bentrok langsung (tanpa muat ulang halaman).
+// Hanya informasi; penolakan bentrok yang mengikat tetap dilakukan server saat Simpan.
+(function () {
+    const form = document.getElementById('formInputJadwal');
+    const panel = document.getElementById('ketersediaanIsi');
+    const peringatan = document.getElementById('peringatanForm');
+    if (!form || !panel) return;
+
+    const URL_API = @json(route('jadwal.ketersediaan'));
+    let tunda = null, urutan = 0, pengendali = null;
+
+    const esc = function (s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+    const nilai = function (n) { return form.elements[n] ? form.elements[n].value : ''; };
+    const titik = function (jam) { return String(jam).replace(':', '.'); };
+    const orang = function (o) {
+        return '<strong>' + esc(o.kelas) + '</strong> &middot; ' + esc(o.mapel) + ' &middot; ' + esc(o.guru) + (o.milik_saya ? ' <span class="badge badge-jadwal-saya">Anda</span>' : '');
+    };
+
+    function gambarSlot(d) {
+        if (!d.slots) {
+            panel.innerHTML = '<div class="text-muted small text-center py-3"><i class="bi bi-door-open fs-4 d-block mb-1"></i>' +
+                'Pilih <strong>hari</strong> dan <strong>ruangan</strong> di formulir untuk melihat jam yang kosong atau terpakai.</div>';
+            return;
+        }
+        const a = parseInt(nilai('sesi_mulai'), 10) || 0;
+        const b = parseInt(nilai('sesi_selesai'), 10) || a;
+        const sel = form.elements['id_ruangan_default'];
+        const namaRuang = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].text.trim() : '';
+        const kosong = d.slots.filter(function (s) { return !s.terpakai; }).length;
+
+        let html = '<div class="d-flex flex-wrap justify-content-between gap-1 small text-muted mb-2">' +
+            '<span>' + esc(namaRuang) + ' &middot; ' + esc(d.hari) + ' &middot; ' + esc(d.blok) + '</span>' +
+            '<span><strong class="text-success">' + kosong + '</strong> dari ' + d.slots.length + ' jam kosong</span></div>' +
+            '<div class="d-grid gap-2">';
+        d.slots.forEach(function (s) {
+            const dipilih = a > 0 && s.no >= a && s.no <= b;
+            html += '<div class="slot-ruang ' + (s.terpakai ? 'pakai' : 'kosong') + (dipilih ? ' dipilih' : '') + '">' +
+                '<div class="slot-no">Jam ke-' + s.no + '<div class="small fw-normal text-muted">' + titik(s.mulai) + ' &ndash; ' + titik(s.selesai) + '</div></div>' +
+                '<div class="flex-grow-1 small">' + (s.terpakai ? s.oleh.map(orang).join('<br>') : '<span class="text-success">Kosong</span>') + '</div>' +
+                '<span class="badge ' + (s.terpakai ? 'text-bg-danger' : 'text-bg-success') + '">' + (s.terpakai ? 'Terpakai' : 'Kosong') + '</span></div>';
+        });
+        panel.innerHTML = html + '</div>';
+    }
+
+    function gambarBentrok(d) {
+        if (d.pesan_jam) {
+            peringatan.innerHTML = '<div class="alert alert-warning py-2 small mb-0"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + esc(d.pesan_jam) + '</div>';
+        } else if (d.bentrok && d.bentrok.length) {
+            peringatan.innerHTML = '<div class="alert alert-danger py-2 small mb-0"><strong><i class="bi bi-x-octagon-fill me-1"></i>Bentrok dengan jadwal lain:</strong><ul class="mb-0 ps-3 mt-1">' +
+                d.bentrok.map(function (j) {
+                    return '<li>' + orang(j) + '<br><span class="text-muted">' + esc(j.hari) + ', ' + esc(j.jam) + ' &middot; ' + esc(j.ruangan) + '</span> ' +
+                        j.alasan.map(function (x) { return '<span class="badge text-bg-danger">' + esc(x) + '</span>'; }).join(' ') + '</li>';
+                }).join('') + '</ul></div>';
+        } else if (d.bentrok_dicek) {
+            peringatan.innerHTML = '<div class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Tidak ada bentrok pada pilihan ini.</div>';
+        } else {
+            peringatan.innerHTML = '';
+        }
+    }
+
+    function ambil() {
+        const p = new URLSearchParams({
+            blok: nilai('cycle_type'), hari: nilai('hari'),
+            ruangan: nilai('id_ruangan_default'), kelas: nilai('id_kelas'),
+            sesi_mulai: nilai('sesi_mulai'), sesi_selesai: nilai('sesi_selesai')
+        });
+        const saya = ++urutan;
+        if (pengendali) pengendali.abort();
+        pengendali = new AbortController();
+
+        fetch(URL_API + '?' + p.toString(), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            signal: pengendali.signal
+        }).then(function (r) {
+            if (!r.ok) throw new Error('http ' + r.status);
+            return r.json();
+        }).then(function (d) {
+            if (saya !== urutan) return;      // abaikan balasan lama
+            gambarSlot(d);
+            gambarBentrok(d);
+        }).catch(function (e) {
+            if (e.name === 'AbortError') return;
+            panel.innerHTML = '<div class="text-muted small text-center py-3">Ketersediaan belum bisa dimuat. Coba pilih ulang ruangan.</div>';
+            peringatan.innerHTML = '';
+        });
+    }
+
+    function jadwalkan() { clearTimeout(tunda); tunda = setTimeout(ambil, 250); }
+
+    form.addEventListener('change', jadwalkan);
+    window.addEventListener('scp-blok-berubah', jadwalkan);
+    setTimeout(ambil, 300);
 })();
 
 // Isi modal "Ubah Jadwal" dari atribut data-* pada tombol yang diklik.

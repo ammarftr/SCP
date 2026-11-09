@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Verifikasi Izin Siswa')
-@section('subtitle', $tampilkanRiwayat ? 'Menampilkan semua riwayat pengajuan' : 'Pengajuan hari ini, ' . now()->translatedFormat('d F Y'))
+@section('subtitle', $tampilkanRiwayat ? 'Menampilkan semua riwayat pengajuan' : 'Pengajuan hari ini (' . now()->translatedFormat('d F Y') . ') dan yang masih menunggu')
 
 @section('content')
 @if($kelasWali !== null)
@@ -164,7 +164,7 @@
                     </tr>
                     @empty
                     <tr><td colspan="7" class="text-center text-muted py-4">
-                        {{ $tampilkanRiwayat ? 'Belum ada riwayat pengajuan izin.' : 'Tidak ada pengajuan izin masuk hari ini.' }}
+                        {{ $tampilkanRiwayat ? 'Belum ada riwayat pengajuan izin.' : 'Tidak ada pengajuan izin yang perlu diproses.' }}
                     </td></tr>
                     @endforelse
                 </tbody>

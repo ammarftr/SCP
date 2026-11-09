@@ -149,7 +149,7 @@
 
     <div class="scp-card-body p-0">
         <div class="table-responsive tabel-jadwal-wrap">
-            <table class="table table-hover table-sm align-middle mb-0 tabel-jadwal">
+            <table class="table table-hover table-sm align-middle mb-0 tabel-jadwal tabel-tetap">
                 <thead>
                     <tr>
                         <th class="text-nowrap">Jam</th>

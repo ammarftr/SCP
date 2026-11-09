@@ -29,7 +29,12 @@ class KesiswaanController extends Controller
         }
 
         if (!$tampilkanRiwayat) {
-            $query->whereDate('created_at', now()->toDateString());
+            // Pengajuan hari ini + semua yang masih menunggu, supaya izin hari-hari sebelumnya
+            // yang belum diproses tidak terlewat (dibungkus satu grup agar OR tidak lolos dari batas kelas).
+            $query->where(function ($w) {
+                $w->whereDate('created_at', now()->toDateString())
+                  ->orWhere('status_approval', 'Pending');
+            });
         }
 
         if ($keyword) {
@@ -134,7 +139,7 @@ class KesiswaanController extends Controller
      */
     public function rekapAbsensi(Request $request)
     {
-        $tanggal = $request->query('tanggal', now()->toDateString());
+        $tanggal = $this->tanggalAman($request->query('tanggal'));
         $keyword = $request->query('q');
         $kelasFilter = $request->query('kelas');
         $tampilkanSemua = $request->boolean('semua');

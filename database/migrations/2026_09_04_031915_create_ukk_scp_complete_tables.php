@@ -161,7 +161,7 @@ return new class extends Migration
         Schema::create('system_configurations', function (Blueprint $table) {
             $table->increments('id');
             $table->enum('active_cycle', ['Blok 1', 'Blok 2'])->default('Blok 1');
-            $table->boolean('is_schedule_locked')->default(false); // kolom skema soal; diisi otomatis (true bila kedua blok terkunci)
+            $table->boolean('is_schedule_locked')->default(false); // kolom skema soal; diisi otomatis (true bila ada blok yang terkunci)
             $table->boolean('is_locked_blok_1')->default(false);   // kunci jadwal per blok
             $table->boolean('is_locked_blok_2')->default(false);
             $table->unsignedInteger('updated_by')->nullable();

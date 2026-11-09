@@ -28,7 +28,7 @@
                             <option value="">-- Pilih Jam Pelajaran --</option>
                             @foreach($jadwalHariIni as $j)
                                 <option value="{{ $j->id_jadwal }}" {{ (string)$preselectId === (string)$j->id_jadwal ? 'selected' : '' }}>
-                                    {{ $j->jam_mulai }} - {{ $j->jam_selesai }} | {{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }} | Kelas {{ $j->kelas->id_kelas ?? $j->id_kelas }}
+                                    {{ substr($j->jam_mulai, 0, 5) }} - {{ substr($j->jam_selesai, 0, 5) }} | {{ $j->mataPelajaran->nama_mapel ?? $j->id_mapel }} | Kelas {{ $j->kelas->id_kelas ?? $j->id_kelas }}
                                 </option>
                             @endforeach
                         </select>
@@ -110,7 +110,7 @@
                                     <td>
                                         @if($item->jadwal)
                                             <strong>{{ $item->jadwal->kelas->id_kelas ?? '-' }}</strong> - {{ $item->jadwal->mataPelajaran->nama_mapel ?? '-' }}<br>
-                                            <small class="text-muted">{{ $item->jadwal->hari }}, {{ $item->jadwal->jam_mulai }} - {{ $item->jadwal->jam_selesai }}</small>
+                                            <small class="text-muted">{{ $item->jadwal->hari }}, {{ substr($item->jadwal->jam_mulai, 0, 5) }} - {{ substr($item->jadwal->jam_selesai, 0, 5) }}</small>
                                         @else
                                             <span class="text-muted">Jadwal dihapus</span>
                                         @endif
