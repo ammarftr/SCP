@@ -3,10 +3,12 @@
 Aplikasi presensi, jurnal mengajar, dan perizinan siswa untuk SMK Negeri 1 Bantul, dengan jadwal blok dua mingguan (Blok 1 dan Blok 2). Dibuat sebagai tugas Uji Kompetensi Keahlian (UKK) Rekayasa Perangkat Lunak. Tampilannya mengutamakan HP dan bisa dipasang sebagai PWA.
 
 ## Teknologi
-- PHP 8.4 atau lebih baru, Laravel 13
+- PHP 8.3 atau lebih baru, Laravel 13
 - MySQL / MariaDB
 - Bootstrap 5, Bootstrap Icons, Tom Select, JavaScript biasa
 - PWA (service worker dan manifest)
+
+Aplikasi ini tidak memerlukan Node.js atau `npm`. Berkas `package.json` dan `vite.config.js` adalah sisa bawaan Laravel dan tidak dipakai. Seluruh CSS dan JS ada di `public/css` dan `public/js`.
 
 ## Peran pengguna
 | Peran | Fungsi utama |
@@ -58,7 +60,7 @@ Tabel tambahan:
 - `siswa`, `guru`, `mata_pelajaran`, `jurusan`: data master.
 - `tahun_ajaran`: tetap ada untuk relasi jadwal, tetapi aplikasi tidak lagi memakai konsep semester. Hanya satu baris bawaan yang dipakai.
 - `kode_otp`: kode untuk lupa kata sandi lewat email.
-- `kenaikan_kelas` dan `kenaikan_kelas_detail`: riwayat proses kenaikan kelas dan kondisi tiap siswa sebelum dan sesudahnya, dipakai untuk pembatalan. Tabel ini dibuat oleh migrasi, dan dibuat otomatis saat halaman Kenaikan Kelas pertama kali dibuka bila belum ada.
+- `kenaikan_kelas` dan `kenaikan_kelas_detail`: riwayat proses kenaikan kelas dan kondisi tiap siswa sebelum dan sesudahnya, dipakai untuk pembatalan. Tabel ini dibuat oleh migrasi, dan dibuat otomatis saat halaman Kenaikan Kelas pertama kali dibuka bila belum ada (user database harus punya izin `CREATE`).
 
 ## Instalasi lokal
 ```bash
@@ -76,12 +78,28 @@ Akun uji coba dari seeder (hanya untuk lokal, kata sandi `12345678`): `waka`, `g
 
 Email keluar memakai `MAIL_MAILER=log` secara bawaan, jadi kode OTP hanya tertulis di `storage/logs`. Isi pengaturan `MAIL_*` di `.env` bila ingin mengirim email sungguhan.
 
+## Perintah artisan tambahan
+| Perintah | Fungsi |
+|---|---|
+| `php artisan bk:impor-kelas` | Menetapkan Guru BK pengampu tiap kelas (`kelas.id_bk`) dari berkas `database/data/wali_bk_2026_2027.json`. Kelas dicocokkan dengan nama kelas (spasi diabaikan), Guru BK dengan nama akun berperan Guru BK. Tambahkan `--simulasi` untuk hanya melihat hasil pencocokan tanpa menyimpan, dan `--berkas=` untuk memakai berkas JSON lain. Kelas atau akun yang belum ada ditampilkan sebagai peringatan |
+| `php artisan berkas:amankan` | Memindahkan surat izin dan foto jurnal lama dari folder publik (`public/uploads`) ke `storage/app/private`, lalu memperbarui path-nya di database. Dipakai sekali saat memperbarui dari versi lama |
+
 ## Deploy ke hosting (cPanel)
 1. Unggah proyek, lalu arahkan document root ke folder `public`.
-2. Isi `.env` dengan `APP_ENV=production`, `APP_DEBUG=false`, kunci aplikasi, dan koneksi database hosting.
+2. Buat `.env` di server (jangan pernah di-commit ke GitHub) dengan `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY` (dari `php artisan key:generate --show`), dan koneksi database hosting. Bila memakai HTTPS, tambahkan `SESSION_SECURE_COOKIE=true`.
 3. Pastikan `storage` dan `bootstrap/cache` bisa ditulis.
-4. Impor database atau jalankan migrasi. Tanpa akses terminal, tabel dapat dibuat lewat phpMyAdmin.
-5. Setelah memperbarui CSS atau JS, muat ulang browser dengan Ctrl+F5. Pengguna PWA perlu menutup dan membuka kembali aplikasinya agar berkas baru terambil.
+4. Siapkan tabel dengan `php artisan migrate --force`. Tanpa akses terminal, impor database atau jalankan SQL migrasi lewat phpMyAdmin. Setiap kali ada migrasi baru (misalnya tabel kenaikan kelas), jalankan lagi langkah ini.
+5. Setelah memperbarui CSS atau JS, naikkan nomor `VERSI` di `public/sw.js`, lalu muat ulang browser dengan Ctrl+F5. Pengguna PWA perlu menutup dan membuka kembali aplikasinya agar berkas baru terambil.
+
+## Memperbarui repositori GitHub
+```bash
+git status
+git add -A
+git status          # pastikan tidak ada .env, vendor, atau storage/logs
+git commit -m "Pesan perubahan"
+git push origin main
+```
+Berkas yang tidak boleh ikut ke GitHub sudah ada di `.gitignore`: `.env`, `vendor`, `storage/logs`, unggahan pengguna di `public/uploads` dan `storage/app/private`, serta salinan hosting di `public/home`.
 
 ## Pengujian manual yang disarankan
 1. Login sebagai guru, input jadwal, lalu input jadwal yang bentrok. Jadwal kedua harus ditolak.
@@ -98,13 +116,16 @@ Email keluar memakai `MAIL_MAILER=log` secara bawaan, jadi kode OTP hanya tertul
 - Kata sandi awal akun hasil impor sama untuk semua siswa, dan belum ada kewajiban menggantinya saat login pertama.
 - Daftar akun di Manajemen Data dimuat sekaligus lalu dipecah di browser, sehingga bisa melambat bila jumlah akun mencapai ribuan.
 - Belum ada tes otomatis. Pengujian dilakukan manual seperti daftar di atas.
+- Berkas `database/data/wali_bk_2026_2027.json` berisi nama guru. Perbarui atau hapus bila repositori dibuat publik dan data itu tidak boleh disebarkan.
 
 ## Struktur singkat
 ```
 app/Http/Controllers   logika per fitur (Jadwal, Jurnal, Kesiswaan, MasterData, KenaikanKelas, ImporSiswa, ...)
 app/Http/Middleware    PastikanPeran (pembatas akses per peran)
+app/Console/Commands   perintah artisan (bk:impor-kelas, berkas:amankan)
 app/Mail               email OTP dan notifikasi akun
 database/migrations    skema tabel
+database/data          data awal berformat JSON (wali kelas dan Guru BK)
 resources/views        tampilan Blade per peran
 public/js, public/css  aset, termasuk tabel-responsif.js; sw.js dan manifest.json untuk PWA
 ```
